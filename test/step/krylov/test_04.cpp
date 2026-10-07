@@ -13,7 +13,7 @@
 
 #include "ROL_KrylovFactory.hpp"
 #include "ROL_StdTridiagonalOperator.hpp"
-#include "ROL_IdentityOperator.hpp"
+#include "ROL_DiagonalOperator.hpp"
 #include "ROL_StdVector.hpp"
 #include "ROL_ParameterList.hpp"
 
@@ -55,7 +55,9 @@ static RunResult runCaptured(const std::string &type, int verbosity) {
   ROL::Ptr<std::vector<RealT>> diag = ROL::makePtr<std::vector<RealT>>(dim, 2.0);
   ROL::Ptr<std::vector<RealT>> offd = ROL::makePtr<std::vector<RealT>>(dim,-1.0);
   ROL::StdTridiagonalOperator<RealT> A(diag,offd,offd);
-  ROL::IdentityOperator<RealT> M;
+  // Diagonal preconditioner so CR's prnorm row differs from ||b||.
+  ROL::StdVector<RealT> mdiag(ROL::makePtr<std::vector<RealT>>(dim, 2.0));
+  ROL::DiagonalOperator<RealT> M(mdiag);
 
   ROL::StdVector<RealT> x(ROL::makePtr<std::vector<RealT>>(dim,0.0));
   ROL::StdVector<RealT> b(ROL::makePtr<std::vector<RealT>>(dim,1.0));
@@ -89,9 +91,10 @@ int main(int argc, char *argv[]) {
 
     const std::string types[] = {"Conjugate Gradients", "Conjugate Residuals",
                                  "GMRES", "MINRES", "BiCGSTAB"};
-    const std::string names[] = {"CG done: flag=", "CR done: flag=",
-                                 "GMRES done: flag=", "MINRES done: flag=",
-                                 "BiCGSTAB done: flag="};
+    const std::string names[] = {"CG done: iter=", "CR done: iter=",
+                                 "GMRES done: iter=", "MINRES done: iter=",
+                                 "BiCGSTAB done: iter="};
+    const std::string cols[]  = {"pAp", "prnorm", "rnorm", "rnorm", "omega"};
 
     for (int k = 0; k < 5; ++k) {
       const RunResult omitted = runCaptured(types[k],-1);
@@ -107,7 +110,7 @@ int main(int argc, char *argv[]) {
                    << v0.xnorm << " vs " << v1.xnorm << ")\n";
         errorFlag += 1;
       }
-      const std::string labels[] = {"iter", "rnorm", "flag", names[k]};
+      const std::string labels[] = {"iter", cols[k], names[k]};
       for (const std::string &label : labels) {
         if (v1.captured.find(label) == std::string::npos) {
           *outStream << types[k] << ": missing '" << label << "'\n";

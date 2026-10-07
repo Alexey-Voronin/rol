@@ -57,7 +57,8 @@ public:
               int                      &iflag,
               int                      &iter,
               const Real                del,
-              TrustRegionModel_U<Real> &model ) {
+              TrustRegionModel_U<Real> &model,
+              std::ostream             &outStream = std::cout ) {
     Real tol = std::sqrt(ROL_EPSILON<Real>());
     const Real zero(0), one(1), two(2), half(0.5);
     // Initialize step
@@ -73,12 +74,12 @@ public:
     // Initialize basis vector
     p_->set(*v_); p_->scale(-one);
     Real pnorm2 = v_->apply(*g_);
-    IterationPrinter<Real> out("CG",verbosity_,{"rnorm","snorm","alpha","pRed"});
+    IterationPrinter<Real> out("TCG",verbosity_,{"rnorm","snorm","alpha","pRed"},outStream,true);
     out.writeRow(0,{gnorm});
     if ( pnorm2 <= zero ) {
       iflag = 4;
       iter  = 0;
-      out.writeSummary(iflag);
+      out.writeSummary(iter,iflag);
       return;
     }
     // Initialize scalar storage
@@ -139,10 +140,10 @@ public:
     // Check iteration count
     if (iter == maxit_) iflag = 1;
     if (iflag != 1)     iter++;
-    // Omit stale residual and rejected alpha values after truncation.
+    // Truncation row: show the truncated step length in alpha, omit the stale residual.
     const Real na = IterationPrinter<Real>::none();
-    if (iflag == 2 || iflag == 3) out.writeRow(iter,{na,snorm,na,pRed},iflag);
-    out.writeSummary(iflag);
+    if (iflag == 2 || iflag == 3) out.writeRow(iter,{na,snorm,sigma,pRed},iflag);
+    out.writeSummary(iter,iflag);
   }
 };
 

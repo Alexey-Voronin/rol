@@ -77,6 +77,29 @@ static RunResult runCaptured(int verbosity, RealT radius = -1,
   return r;
 }
 
+// Run to a dedicated stream (not std::cout) so a dropped outStream is caught.
+static std::string runToOwnStream(int outerLevel, int verbosity,
+                                  const char *solver = "Truncated CG") {
+  auto parlist = ROL::makePtr<ROL::ParameterList>();
+  parlist->sublist("General").set("Output Level", outerLevel);
+  parlist->sublist("General").sublist("Krylov").set("Iteration Limit", 20);
+  parlist->sublist("General").sublist("Krylov").set("Verbosity", verbosity);
+  parlist->sublist("Step").set("Type", "Trust Region");
+  parlist->sublist("Step").sublist("Trust Region").set("Subproblem Solver", solver);
+  parlist->sublist("Status Test").set("Iteration Limit", 3);
+
+  ROL::Ptr<ROL::OptimizationProblem<RealT>> problem;
+  ROL::Ptr<ROL::Vector<RealT>> x0;
+  std::vector<ROL::Ptr<ROL::Vector<RealT>>> z;
+  ROL::GetTestProblem<RealT>(problem, x0, z, ROL::TESTOPTPROBLEM_ROSENBROCK);
+  auto x = x0->clone(); x->set(*x0);
+
+  std::ostringstream os;
+  auto algo = ROL::makePtr<ROL::TypeU::TrustRegionAlgorithm<RealT>>(*parlist);
+  algo->run(*x, *problem->getObjective(), os);
+  return os.str();
+}
+
 // Extract the iteration column from each CG row.
 static std::vector<int> extractIterColumn(const std::string& s) {
   std::vector<int> out;
@@ -128,8 +151,8 @@ int main(int argc, char *argv[]) {
       errorFlag += 1;
     }
 
-    if (r_v1.captured.find("CG done: flag=") == std::string::npos) {
-      *outStream << "Verbosity=1 missing 'CG done: flag=' summary" << std::endl;
+    if (r_v1.captured.find("TCG done: iter=") == std::string::npos) {
+      *outStream << "Verbosity=1 missing 'TCG done: iter=' summary" << std::endl;
       errorFlag += 1;
     }
     const char* labels[] = {"iter", "rnorm", "snorm", "alpha", "pRed", "flag"};
@@ -163,7 +186,8 @@ int main(int argc, char *argv[]) {
 
     const RunResult r_trunc = runCaptured(1, 1e-8, 1);
     const std::vector<int> trunc_iters = extractIterColumn(r_trunc.captured);
-    if (r_trunc.captured.find("CG done: flag=3") == std::string::npos
+    if (r_trunc.captured.find("TCG done:") == std::string::npos
+        || r_trunc.captured.find("flag=3") == std::string::npos
         || trunc_iters.size() != 2
         || trunc_iters[0] != 0 || trunc_iters[1] != 1) {
       *outStream << "Trust-region truncation diagnostic is malformed" << std::endl;
@@ -174,8 +198,17 @@ int main(int argc, char *argv[]) {
     const RunResult r_spg1 = runCaptured(1,-1,3,"SPG");
     if (!r_spg0.captured.empty()
         || r_spg0.finalNorm != r_spg1.finalNorm
-        || r_spg1.captured.find("SPG done: flag=") == std::string::npos) {
+        || r_spg1.captured.find("SPG done: iter=") == std::string::npos) {
       *outStream << "SPG subproblem diagnostic is malformed" << std::endl;
+      errorFlag += 1;
+    }
+
+    // Outer trust-region table and inner subproblem table must share the driver stream.
+    const std::string both = runToOwnStream(1, 1, "Truncated CG");
+    if (both.find("iterCG") == std::string::npos
+        || both.find("TCG done: iter=") == std::string::npos
+        || both.find("rnorm") == std::string::npos) {
+      *outStream << "Inner subproblem table did not follow the driver stream" << std::endl;
       errorFlag += 1;
     }
 
@@ -199,6 +232,7 @@ int main(int argc, char *argv[]) {
 
     *outStream << std::endl << "Truncated CG" << std::endl << r_v1.captured;
     *outStream << "SPG" << std::endl << r_spg1.captured;
+    *outStream << "Outer + inner (Output Level 1)" << std::endl << both;
   }
   catch (std::logic_error& err) {
     *outStream << err.what() << std::endl;

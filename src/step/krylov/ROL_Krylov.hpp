@@ -14,6 +14,8 @@
     \brief Provides definitions for Krylov solvers.
 */
 
+#include <iostream>
+
 #include "ROL_Vector.hpp"
 #include "ROL_LinearOperator.hpp"
 #include "ROL_ParameterList.hpp"
@@ -44,8 +46,8 @@ public:
 
   // Run Krylov Method
   virtual Real run( Vector<Real> &x, LinearOperator<Real> &A,
-              const Vector<Real> &b, LinearOperator<Real> &M, 
-                    int &iter, int &flag ) = 0;
+              const Vector<Real> &b, LinearOperator<Real> &M,
+                    int &iter, int &flag, std::ostream &outStream = std::cout ) = 0;
 
   void resetAbsoluteTolerance(const Real absTol) {
     absTol_ = absTol;

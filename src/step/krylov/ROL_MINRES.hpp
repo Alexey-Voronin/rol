@@ -80,7 +80,8 @@ public:
     clones_("v_prev","v_curr","v_next","w_prev","w_curr","w_next") { }
 
   // Note: Preconditioner is not implemented
-  virtual Real run( V &x, OP &A, const V &b, OP &M, int &iter, int &flag ) override {
+  virtual Real run( V &x, OP &A, const V &b, OP &M, int &iter, int &flag,
+                    std::ostream &outStream = std::cout ) override {
 
     auto v_prev = clones_( x, "v_prev" );  v_prev->zero(); 
     auto v_curr = clones_( x, "v_curr" );  v_curr->set(b);
@@ -102,7 +103,7 @@ public:
     v_curr->scale(1.0/resnorm_);
 
     flag = 0;
-    IterationPrinter<Real> out("MINRES",Krylov<Real>::getVerbosity(),{"rnorm"});
+    IterationPrinter<Real> out("MINRES",Krylov<Real>::getVerbosity(),{"rnorm"},outStream);
     out.writeRow(0,{resnorm_});
 
     for( iter=0;  iter < (int)Krylov<Real>::getMaximumIteration(); iter++) {
@@ -174,7 +175,7 @@ public:
     if ( iter == (int)Krylov<Real>::getMaximumIteration() ) flag = 1;
     else iter++;
 
-    out.writeSummary(flag);
+    out.writeSummary(iter,flag);
     return resnorm_;
   } // run()
 

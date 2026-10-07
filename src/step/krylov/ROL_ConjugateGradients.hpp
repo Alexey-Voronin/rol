@@ -35,7 +35,7 @@ public:
     : Krylov<Real>(absTol,relTol,maxit), isInitialized_(false), useInexact_(useInexact) {}
 
   Real run( Vector<Real> &x, LinearOperator<Real> &A, const Vector<Real> &b, LinearOperator<Real> &M,
-            int &iter, int &flag ) {
+            int &iter, int &flag, std::ostream &outStream = std::cout ) {
     if ( !isInitialized_ ) {
       r_  = b.clone();
       v_  = x.clone();
@@ -61,7 +61,7 @@ public:
     //Real gv    = v_->dot(r_->dual());
     Real gv    = v_->apply(*r_);
 
-    IterationPrinter<Real> out("CG",Krylov<Real>::getVerbosity(),{"rnorm","alpha","kappa"});
+    IterationPrinter<Real> out("CG",Krylov<Real>::getVerbosity(),{"rnorm","alpha","pAp"},outStream);
     out.writeRow(0,{rnorm});
 
     for (iter = 0; iter < (int)Krylov<Real>::getMaximumIteration(); iter++) {
@@ -74,6 +74,7 @@ public:
       kappa = p_->apply(*Ap_);
       if ( kappa <= zero ) {
         flag = 2;
+        out.writeRow(iter+1,{IterationPrinter<Real>::none(),IterationPrinter<Real>::none(),kappa});
         break;
       }
       alpha = gv/kappa;
@@ -103,7 +104,7 @@ public:
     else {
       iter++;
     }
-    out.writeSummary(flag);
+    out.writeSummary(iter,flag);
     return rnorm;
   }
 };

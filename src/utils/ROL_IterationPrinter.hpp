@@ -34,6 +34,7 @@ private:
   std::ostream &os_;
   const bool active_;
   const int ncol_;
+  const bool flagColumn_;  // Append a trailing flag column
 
   // Widths and precision match the Type* algorithm tables.
   static constexpr int iwidth_ =  6;
@@ -47,16 +48,17 @@ public:
   // Writes the header.  The serial MPI stub reports rank one.
   IterationPrinter(const char *name, int verbosity,
                    std::initializer_list<const char*> labels,
-                   std::ostream &outStream = std::cout)
+                   std::ostream &outStream = std::cout, bool flagColumn = false)
     : name_(name), os_(outStream),
       active_(verbosity > 0 && (GlobalMPISession::getNProc() <= 1
                                 || GlobalMPISession::getRank() == 0)),
-      ncol_(static_cast<int>(labels.size())) {
+      ncol_(static_cast<int>(labels.size())), flagColumn_(flagColumn) {
     if ( !active_ ) return;
-    os_ << std::string(2+2*iwidth_+cwidth_*ncol_,'-') << "\n";
+    os_ << std::string(2+iwidth_*(1+flagColumn_)+cwidth_*ncol_,'-') << "\n";
     os_ << "  " << std::setw(iwidth_) << std::left << "iter";
     for (const char *label : labels) os_ << std::setw(cwidth_) << std::left << label;
-    os_ << std::setw(iwidth_) << std::left << "flag" << "\n";
+    if ( flagColumn_ ) os_ << std::setw(iwidth_) << std::left << "flag";
+    os_ << "\n";
   }
 
   // Values equal to none() and a negative flag print as "---".
@@ -74,14 +76,16 @@ public:
     os_.precision(p);
     for (int i = static_cast<int>(values.size()); i < ncol_; ++i)
       os_ << std::setw(cwidth_) << std::left << "---";
-    if ( flag < 0 ) os_ << std::setw(iwidth_) << std::left << "---";
-    else            os_ << std::setw(iwidth_) << std::left << flag;
+    if ( flagColumn_ ) {
+      if ( flag < 0 ) os_ << std::setw(iwidth_) << std::left << "---";
+      else            os_ << std::setw(iwidth_) << std::left << flag;
+    }
     os_ << "\n";
   }
 
-  void writeSummary(int flag) const {
+  void writeSummary(int iter, int flag) const {
     if ( !active_ ) return;
-    os_ << "  " << name_ << " done: flag=" << flag << "\n" << std::endl;
+    os_ << "  " << name_ << " done: iter=" << iter << " flag=" << flag << "\n" << std::endl;
   }
 };
 

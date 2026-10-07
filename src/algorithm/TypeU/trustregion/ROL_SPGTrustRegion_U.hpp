@@ -70,7 +70,8 @@ public:
               int                      &iflag,
               int                      &iter,
               const Real                del,
-              TrustRegionModel_U<Real> &model ) {
+              TrustRegionModel_U<Real> &model,
+              std::ostream             &outStream = std::cout ) {
     const Real zero(0), half(0.5), one(1), two(2), eps(std::sqrt(ROL_EPSILON<Real>()));
     Real tol(eps), alpha(1), sHs(0), alphaTmp(1), mmax(0), qmin(0), q(0);
     Real gnorm(0), ss(0), gs(0);
@@ -100,12 +101,12 @@ public:
     if (snorm > del) pwa_->scale(del/snorm);
     pwa_->axpy(-one,s);
     gnorm = pwa_->norm();
-    IterationPrinter<Real> out("SPG",verbosity_,{"gnorm","alpha","pRed"});
+    IterationPrinter<Real> out("SPG",verbosity_,{"gnorm","alpha","pRed"},outStream);
     out.writeRow(0,{gnorm});
     if (gnorm == zero) {
       snorm = s.norm();
       pRed  = -q;
-      out.writeSummary(iflag);
+      out.writeSummary(0,iflag);
       return;
     }
     const Real gtol = std::min(tol1_,tol2_*gnorm);
@@ -164,7 +165,7 @@ public:
     iflag = (iter==maxit_ ? 1 : 0);
     pRed = -q;
     snorm = s.norm();
-    out.writeSummary(iflag);
+    out.writeSummary(iter,iflag);
   }
 };
 

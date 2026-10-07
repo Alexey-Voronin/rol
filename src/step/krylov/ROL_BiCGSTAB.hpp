@@ -35,7 +35,7 @@ public:
     : Krylov<Real>(parlist), isInitialized_(false), useInexact_(useInexact) {}
 
   Real run( Vector<Real> &x, LinearOperator<Real> &A, const Vector<Real> &b, LinearOperator<Real> &M,
-            int &iter, int &flag ) {
+            int &iter, int &flag, std::ostream &outStream = std::cout ) {
     if ( !isInitialized_ ) {
       r_ = b.clone(); r1_ = b.clone(); p_ = b.clone();
       v_ = b.clone(); s_  = b.clone(); t_ = b.clone();
@@ -47,7 +47,15 @@ public:
     Real rnorm = b.norm();
     Real itol = std::sqrt(ROL_EPSILON<Real>());
     const Real rtol = std::min(Krylov<Real>::getAbsoluteTolerance(),Krylov<Real>::getRelativeTolerance()*rnorm);
-    if (rnorm <= rtol) return rnorm;
+
+    IterationPrinter<Real> out("BiCGSTAB",Krylov<Real>::getVerbosity(),{"rnorm","alpha","omega"},outStream);
+    out.writeRow(0,{rnorm});
+    if (rnorm <= rtol) {
+      iter = 0;
+      flag = 0;
+      out.writeSummary(iter,flag);
+      return rnorm;
+    }
 
     x.zero();
     v_->zero();
@@ -57,9 +65,6 @@ public:
 
     iter = 0;
     flag = 0;
-
-    IterationPrinter<Real> out("BiCGSTAB",Krylov<Real>::getVerbosity(),{"rnorm","alpha","omega"});
-    out.writeRow(0,{rnorm});
 
     for (iter = 0; iter < (int)Krylov<Real>::getMaximumIteration(); iter++) {
       rho1 = r_->dot(*r1_);
@@ -109,7 +114,7 @@ public:
     else {
       iter++;
     }
-    out.writeSummary(flag);
+    out.writeSummary(iter,flag);
     return rnorm;
   }
 };

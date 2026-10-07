@@ -36,8 +36,8 @@ public:
     : Krylov<Real>(absTol,relTol,maxit), isInitialized_(false), useInexact_(useInexact) {}
 
   // Run Krylov Method
-  Real run( Vector<Real> &x, LinearOperator<Real> &A, const Vector<Real> &b, LinearOperator<Real> &M, 
-            int &iter, int &flag ) {
+  Real run( Vector<Real> &x, LinearOperator<Real> &A, const Vector<Real> &b, LinearOperator<Real> &M,
+            int &iter, int &flag, std::ostream &outStream = std::cout ) {
     if ( !isInitialized_ ) {
       r_   = x.clone();
       v_   = b.clone();
@@ -78,8 +78,8 @@ public:
     //Real gHg   = r_->dot(v_->dual()); 
     Real gHg   = r_->apply(*v_); 
 
-    IterationPrinter<Real> out("CR",Krylov<Real>::getVerbosity(),{"rnorm","alpha","kappa"});
-    out.writeRow(0,{rnorm});
+    IterationPrinter<Real> out("CR",Krylov<Real>::getVerbosity(),{"prnorm","alpha"},outStream);
+    out.writeRow(0,{r_->norm()});
 
     for (iter = 0; iter < (int)Krylov<Real>::getMaximumIteration(); iter++) {
       itol = std::sqrt(ROL_EPSILON<Real>());
@@ -96,7 +96,7 @@ public:
 
       r_->axpy(-alpha,*MAp_);
       rnorm = r_->norm();
-      out.writeRow(iter+1,{rnorm,alpha,kappa},flag);
+      out.writeRow(iter+1,{rnorm,alpha},flag);
       if ( rnorm < rtol ) {
         break;
       }
@@ -122,7 +122,7 @@ public:
     else {
       iter++;
     } 
-    out.writeSummary(flag);
+    out.writeSummary(iter,flag);
     return rnorm;
   }
 };

@@ -90,14 +90,12 @@ private:
   bool isInitialized_;
   bool useInexact_;
   bool useInitialGuess_;    // If false, inital x will be ignored and zero vec used
-  Ptr<std::ostream> outStream_;
 
   LAPACK<int,Real> lapack_;
 
 public:
 
-  GMRES( ParameterList &parlist ) : Krylov<Real>(parlist), isInitialized_(false),
-    outStream_(makePtrFromRef(std::cout)) {
+  GMRES( ParameterList &parlist ) : Krylov<Real>(parlist), isInitialized_(false) {
 
     using std::vector;
 
@@ -123,7 +121,7 @@ public:
   }
 
   Real run( Vector<Real> &x, LinearOperator<Real> &A, const Vector<Real> &b,
-            LinearOperator<Real> &M, int &iter, int &flag ) {
+            LinearOperator<Real> &M, int &iter, int &flag, std::ostream &outStream = std::cout ) {
 
     Real absTol = Krylov<Real>::getAbsoluteTolerance();
     Real relTol = Krylov<Real>::getRelativeTolerance();
@@ -163,7 +161,7 @@ public:
 
     (*res_)[0] = r_->norm();
 
-    IterationPrinter<Real> out("GMRES",Krylov<Real>::getVerbosity(),{"rnorm"},*outStream_);
+    IterationPrinter<Real> out("GMRES",Krylov<Real>::getVerbosity(),{"rnorm"},outStream);
     out.writeRow(0,{(*res_)[0]});
 
     // This should be a tolerance check
@@ -171,7 +169,7 @@ public:
     if ((*res_)[0] <= rtol) {
       iter = 0;
       flag = 0;
-      out.writeSummary(flag);
+      out.writeSummary(iter,flag);
       return (*res_)[0];
     }
 
@@ -263,18 +261,8 @@ public:
       x.plus(*z_);
     }
 
-    out.writeSummary(flag);
+    out.writeSummary(iter == maxit ? iter : iter+1,flag);
     return (*res_)[iter == maxit ? iter : iter+1];
-  }
-
-  void enableOutput(std::ostream & outStream)  {
-    Krylov<Real>::resetVerbosity(1);
-    outStream_ = ROL::makePtrFromRef(outStream);
-  }
-
-  void disableOutput() {
-    Krylov<Real>::resetVerbosity(0);
-    outStream_ = ROL::makePtrFromRef(std::cout);
   }
 
 }; // class GMRES
