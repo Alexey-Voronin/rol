@@ -14,6 +14,7 @@
     \brief Provides interface for truncated CG trust-region subproblem solver.
 */
 
+#include "ROL_IterationPrinter.hpp"
 #include "ROL_TrustRegion_U.hpp"
 #include "ROL_Types.hpp"
 
@@ -35,6 +36,7 @@ private:
   Real tol2_;
   bool useMin_;
   bool useNMSP_;
+  int verbosity_;
 
 public:
 
@@ -51,6 +53,7 @@ public:
     tol2_      = list.sublist("Solver").get("Relative Tolerance",                  1e-2);
     useMin_    = list.sublist("Solver").get("Use Smallest Model Iterate",          true);
     useNMSP_   = list.sublist("Solver").get("Use Nonmonotone Search",              false);
+    verbosity_ = list.sublist("Solver").get("Verbosity",                           0);
   }
 
   void initialize(const Vector<Real> &x, const Vector<Real> &g) {
@@ -72,6 +75,7 @@ public:
     Real tol(eps), alpha(1), sHs(0), alphaTmp(1), mmax(0), qmin(0), q(0);
     Real gnorm(0), ss(0), gs(0);
     std::deque<Real> mqueue; mqueue.push_back(0);
+    iflag = 0;
     gmod_->set(*model.getGradient());
 
     // Compute Cauchy point
@@ -96,9 +100,12 @@ public:
     if (snorm > del) pwa_->scale(del/snorm);
     pwa_->axpy(-one,s);
     gnorm = pwa_->norm();
+    IterationPrinter<Real> out("SPG",verbosity_,{"gnorm","alpha","pRed"});
+    out.writeRow(0,{gnorm});
     if (gnorm == zero) {
       snorm = s.norm();
       pRed  = -q;
+      out.writeSummary(iflag);
       return;
     }
     const Real gtol = std::min(tol1_,tol2_*gnorm);
@@ -142,6 +149,7 @@ public:
       if (snorm > del) pwa_->scale(del/snorm);
       pwa_->axpy(-one,s);
       gnorm = pwa_->norm();
+      out.writeRow(iter+1,{gnorm,alpha,-q},iflag);
       if (gnorm < gtol) break;
       // Compute new spectral step
       lambda = (sHs <= eps ? lambdaMax_ : std::max(lambdaMin_,std::min(ss/sHs,lambdaMax_)));
@@ -156,6 +164,7 @@ public:
     iflag = (iter==maxit_ ? 1 : 0);
     pRed = -q;
     snorm = s.norm();
+    out.writeSummary(iflag);
   }
 };
 

@@ -12,6 +12,7 @@
 #define ROL_MINRES_HPP
 
 #include <array>
+#include "ROL_IterationPrinter.hpp"
 #include "ROL_Krylov.hpp"
 #include "ROL_VectorClone.hpp"
 
@@ -100,6 +101,10 @@ public:
 
     v_curr->scale(1.0/resnorm_);
 
+    flag = 0;
+    IterationPrinter<Real> out("MINRES",Krylov<Real>::getVerbosity(),{"rnorm"});
+    out.writeRow(0,{resnorm_});
+
     for( iter=0;  iter < (int)Krylov<Real>::getMaximumIteration(); iter++) {
       if ( useInexact_ ) {
         itol = rtol/((Real)Krylov<Real>::getMaximumIteration() * resnorm_);
@@ -162,11 +167,14 @@ public:
 
       resnorm_ = std::abs( rhs_[1] );
 
+      out.writeRow(iter+1,{resnorm_},flag);
+
     } // for (iter)
 
     if ( iter == (int)Krylov<Real>::getMaximumIteration() ) flag = 1;
     else iter++;
 
+    out.writeSummary(flag);
     return resnorm_;
   } // run()
 

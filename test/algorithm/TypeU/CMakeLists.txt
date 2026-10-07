@@ -36,7 +36,7 @@ ROL_ADD_EXECUTABLE_AND_TEST(
   )
 
 ROL_ADD_EXECUTABLE_AND_TEST(
-  TruncatedCGDiagnostics
+  SubproblemDiagnostics
   SOURCES test_05.cpp
   ARGS PrintItAll
   NUM_MPI_PROCS 1

@@ -14,6 +14,7 @@
     \brief Provides definitions of the Conjugate Gradient solver.
 */
 
+#include "ROL_IterationPrinter.hpp"
 #include "ROL_Krylov.hpp"
 #include "ROL_Types.hpp"
 
@@ -60,6 +61,9 @@ public:
     //Real gv    = v_->dot(r_->dual());
     Real gv    = v_->apply(*r_);
 
+    IterationPrinter<Real> out("CG",Krylov<Real>::getVerbosity(),{"rnorm","alpha","kappa"});
+    out.writeRow(0,{rnorm});
+
     for (iter = 0; iter < (int)Krylov<Real>::getMaximumIteration(); iter++) {
       if ( useInexact_ ) {
         itol = rtol/((Real)Krylov<Real>::getMaximumIteration() * rnorm);
@@ -78,6 +82,7 @@ public:
 
       r_->axpy(-alpha,*Ap_);
       rnorm = r_->norm();
+      out.writeRow(iter+1,{rnorm,alpha,kappa},flag);
       if ( rnorm < rtol ) {
         break;
       }
@@ -98,6 +103,7 @@ public:
     else {
       iter++;
     }
+    out.writeSummary(flag);
     return rnorm;
   }
 };

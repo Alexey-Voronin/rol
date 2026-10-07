@@ -14,6 +14,7 @@
     \brief Preconditioned GMRES solver.
 */
 
+#include "ROL_IterationPrinter.hpp"
 #include "ROL_Krylov.hpp"
 #include "ROL_Types.hpp"
 #include "ROL_LAPACK.hpp"
@@ -89,14 +90,14 @@ private:
   bool isInitialized_;
   bool useInexact_;
   bool useInitialGuess_;    // If false, inital x will be ignored and zero vec used
-  bool printIters_;
   Ptr<std::ostream> outStream_;
 
   LAPACK<int,Real> lapack_;
 
 public:
 
-  GMRES( ParameterList &parlist ) : Krylov<Real>(parlist), isInitialized_(false), printIters_(false) {
+  GMRES( ParameterList &parlist ) : Krylov<Real>(parlist), isInitialized_(false),
+    outStream_(makePtrFromRef(std::cout)) {
 
     using std::vector;
 
@@ -162,14 +163,15 @@ public:
 
     (*res_)[0] = r_->norm();
 
-    if (printIters_)
-      *outStream_ << "GMRES Iteration " << 0 << ", Residual = " << (*res_)[0] << "\n";
+    IterationPrinter<Real> out("GMRES",Krylov<Real>::getVerbosity(),{"rnorm"},*outStream_);
+    out.writeRow(0,{(*res_)[0]});
 
     // This should be a tolerance check
     Real rtol = std::min(absTol,relTol*(*res_)[0]);
     if ((*res_)[0] <= rtol) {
       iter = 0;
       flag = 0;
+      out.writeSummary(flag);
       return (*res_)[0];
     }
 
@@ -230,9 +232,7 @@ public:
       (*H_)(iter+1,iter) = zero;
       (*res_)[iter+1]    = std::abs((*s_)(iter+1));
 
-      if (printIters_) {
-        *outStream_ << "GMRES Iteration " << iter+1 << ", Residual = " << (*res_)[iter+1] << "\n";
-      }
+      out.writeRow(iter+1,{(*res_)[iter+1]},flag);
 
       // Update solution approximation.
       const char uplo = 'U';
@@ -261,18 +261,21 @@ public:
     if(iter == maxit) {
       flag = 1;
       x.plus(*z_);
-      return (*res_)[iter];
     }
 
-    return (*res_)[iter+1];
+    out.writeSummary(flag);
+    return (*res_)[iter == maxit ? iter : iter+1];
   }
 
   void enableOutput(std::ostream & outStream)  {
-    printIters_ = true;
-    outStream_ = ROL::makePtrFromRef(outStream);;
+    Krylov<Real>::resetVerbosity(1);
+    outStream_ = ROL::makePtrFromRef(outStream);
   }
 
-  void disableOutput() {printIters_ = false;}
+  void disableOutput() {
+    Krylov<Real>::resetVerbosity(0);
+    outStream_ = ROL::makePtrFromRef(std::cout);
+  }
 
 }; // class GMRES
 

@@ -26,18 +26,20 @@ class Krylov {
   Real absTol_;      // Absolute residual tolerance
   Real relTol_;      // Relative residual tolerance
   unsigned  maxit_;  // Maximum number of iterations
+  int verbosity_;    // Per-iterate diagnostic output level
 
 public:
   virtual ~Krylov(void) {}
 
   Krylov( Real absTol = 1.e-4, Real relTol = 1.e-2, unsigned maxit = 100 )
-    : absTol_(absTol), relTol_(relTol), maxit_(maxit) {}
+    : absTol_(absTol), relTol_(relTol), maxit_(maxit), verbosity_(0) {}
 
   Krylov( ROL::ParameterList &parlist ) {
     ROL::ParameterList &krylovList = parlist.sublist("General").sublist("Krylov");
     absTol_ = krylovList.get("Absolute Tolerance", 1.e-4);
     relTol_ = krylovList.get("Relative Tolerance", 1.e-2);
     maxit_  = krylovList.get("Iteration Limit", 100);
+    verbosity_ = krylovList.get("Verbosity", 0);
   }
 
   // Run Krylov Method
@@ -54,6 +56,9 @@ public:
   void resetMaximumIteration(const unsigned maxit) {
     maxit_ = maxit;
   }
+  void resetVerbosity(const int verbosity) {
+    verbosity_ = verbosity;
+  }
   Real getAbsoluteTolerance(void) const {
     return absTol_;
   }
@@ -62,6 +67,9 @@ public:
   }
   unsigned getMaximumIteration(void) const {
     return maxit_;
+  }
+  int getVerbosity(void) const {
+    return verbosity_;
   }
 };
 

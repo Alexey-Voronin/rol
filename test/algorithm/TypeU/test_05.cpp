@@ -8,8 +8,8 @@
 // @HEADER
 
 /*! \file  test_05.cpp
-    \brief Test TruncatedCG_U per-iterate diagnostics
-           (General/Krylov/Verbosity parameter).
+    \brief Test trust-region subproblem solver per-iterate diagnostics
+           (Verbosity parameter).
 */
 
 #define USE_HESSVEC 1
@@ -44,15 +44,18 @@ struct RunResult {
 
 // A negative verbosity omits the parameter.
 static RunResult runCaptured(int verbosity, RealT radius = -1,
-                             int outerLimit = 3) {
+                             int outerLimit = 3,
+                             const char *solver = "Truncated CG") {
   auto parlist = ROL::makePtr<ROL::ParameterList>();
   parlist->sublist("General").set("Output Level", 0);
   parlist->sublist("General").sublist("Krylov").set("Iteration Limit", 20);
-  if (verbosity >= 0)
-    parlist->sublist("General").sublist("Krylov").set("Verbosity", verbosity);
   parlist->sublist("Step").set("Type","Trust Region");
   auto &trlist = parlist->sublist("Step").sublist("Trust Region");
-  trlist.set("Subproblem Solver","Truncated CG");
+  if (verbosity >= 0) {
+    parlist->sublist("General").sublist("Krylov").set("Verbosity", verbosity);
+    trlist.sublist("SPG").sublist("Solver").set("Verbosity", verbosity);
+  }
+  trlist.set("Subproblem Solver",solver);
   if (radius > 0) trlist.set("Initial Radius", radius);
   parlist->sublist("Status Test").set("Iteration Limit", outerLimit);
 
@@ -94,9 +97,10 @@ static std::vector<int> extractIterColumn(const std::string& s) {
 int main(int argc, char *argv[]) {
   ROL::GlobalMPISession mpiSession(&argc, &argv);
 
+  // This little trick lets us print to std::cout only if a (dummy) command-line argument is provided.
   int iprint     = argc - 1;
   ROL::Ptr<std::ostream> outStream;
-  ROL::nullstream bhs;
+  ROL::nullstream bhs; // outputs nothing
   if (iprint > 0)
     outStream = ROL::makePtrFromRef(std::cout);
   else
@@ -166,6 +170,15 @@ int main(int argc, char *argv[]) {
       errorFlag += 1;
     }
 
+    const RunResult r_spg0 = runCaptured(0,-1,3,"SPG");
+    const RunResult r_spg1 = runCaptured(1,-1,3,"SPG");
+    if (!r_spg0.captured.empty()
+        || r_spg0.finalNorm != r_spg1.finalNorm
+        || r_spg1.captured.find("SPG done: flag=") == std::string::npos) {
+      *outStream << "SPG subproblem diagnostic is malformed" << std::endl;
+      errorFlag += 1;
+    }
+
     std::cout.precision(3);
     std::cout.setf(std::ios::fixed);
     const std::ios_base::fmtflags before_flags = std::cout.flags();
@@ -182,11 +195,15 @@ int main(int argc, char *argv[]) {
     *outStream << "Verbosity=0 captured "       << r_v0.captured.size()      << " chars" << std::endl;
     *outStream << "Verbosity=1 captured "       << r_v1.captured.size()      << " chars" << std::endl;
     *outStream << "CG rows: "                   << iters.size() << std::endl;
+    *outStream << "SPG captured "               << r_spg1.captured.size() << " chars" << std::endl;
+
+    *outStream << std::endl << "Truncated CG" << std::endl << r_v1.captured;
+    *outStream << "SPG" << std::endl << r_spg1.captured;
   }
   catch (std::logic_error& err) {
     *outStream << err.what() << std::endl;
     errorFlag = -1000;
-  }
+  }; // end try
 
   if (errorFlag != 0)
     std::cout << "End Result: TEST FAILED" << std::endl;

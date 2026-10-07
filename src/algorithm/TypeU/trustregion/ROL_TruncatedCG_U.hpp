@@ -14,11 +14,7 @@
     \brief Provides interface for truncated CG trust-region subproblem solver.
 */
 
-#include <iomanip>
-#include <iostream>
-#include <string>
-
-#include "ROL_GlobalMPISession.hpp"
+#include "ROL_IterationPrinter.hpp"
 #include "ROL_TrustRegion_U.hpp"
 #include "ROL_Types.hpp"
 
@@ -34,51 +30,6 @@ private:
   Real tol2_;
 
   int verbosity_;
-
-  void writeHeader_() const {
-    std::ios_base::fmtflags f = std::cout.flags();
-    std::streamsize p = std::cout.precision();
-    std::cout << std::string(114,'-') << std::endl;
-    std::cout << "  ";
-    std::cout << std::setw(6)  << std::left << "iter";
-    std::cout << std::setw(15) << std::left << "rnorm";
-    std::cout << std::setw(15) << std::left << "snorm";
-    std::cout << std::setw(15) << std::left << "alpha";
-    std::cout << std::setw(15) << std::left << "pRed";
-    std::cout << std::setw(6)  << std::left << "flag";
-    std::cout << std::endl;
-    std::cout.flags(f);
-    std::cout.precision(p);
-  }
-
-  void writeRow_(int k, Real rnorm, bool has_rnorm,
-                 bool has_snorm, Real snorm,
-                 bool has_alpha, Real alpha,
-                 bool has_pRed,  Real pRed,
-                 bool has_flag,  int  flag) const {
-    std::ios_base::fmtflags f = std::cout.flags();
-    std::streamsize p = std::cout.precision();
-    std::cout << "  ";
-    std::cout << std::setw(6) << std::left << k;
-    std::cout << std::scientific << std::setprecision(6);
-    if (has_rnorm) std::cout << std::setw(15) << std::left << rnorm;
-    else           std::cout << std::setw(15) << std::left << "---";
-    if (has_snorm) std::cout << std::setw(15) << std::left << snorm;
-    else           std::cout << std::setw(15) << std::left << "---";
-    if (has_alpha) std::cout << std::setw(15) << std::left << alpha;
-    else           std::cout << std::setw(15) << std::left << "---";
-    if (has_pRed)  std::cout << std::setw(15) << std::left << pRed;
-    else           std::cout << std::setw(15) << std::left << "---";
-    if (has_flag)  std::cout << std::setw(6)  << std::left << flag;
-    else           std::cout << std::setw(6)  << std::left << "---";
-    std::cout << std::endl;
-    std::cout.flags(f);
-    std::cout.precision(p);
-  }
-
-  void writeSummary_(int flag) const {
-    std::cout << "  CG done: flag=" << flag << std::endl << std::endl;
-  }
 
 public:
 
@@ -122,19 +73,12 @@ public:
     // Initialize basis vector
     p_->set(*v_); p_->scale(-one);
     Real pnorm2 = v_->apply(*g_);
-    // The serial MPI stub reports rank 1.
-    const bool print_diag = (verbosity_ >= 1) &&
-                            (GlobalMPISession::getNProc() <= 1
-                             || GlobalMPISession::getRank() == 0);
-    if (print_diag) {
-      writeHeader_();
-      writeRow_(0, gnorm, true, false, zero, false, zero,
-                false, zero, false, 0);
-    }
+    IterationPrinter<Real> out("CG",verbosity_,{"rnorm","snorm","alpha","pRed"});
+    out.writeRow(0,{gnorm});
     if ( pnorm2 <= zero ) {
       iflag = 4;
       iter  = 0;
-      if (print_diag) writeSummary_(iflag);
+      out.writeSummary(iflag);
       return;
     }
     // Initialize scalar storage
@@ -176,10 +120,7 @@ public:
       // Check for convergence
       g_->axpy(alpha,*Hp_);
       normg = g_->norm();
-      if (print_diag) {
-        writeRow_(iter+1, normg, true, true, std::sqrt(snorm2),
-                  true, alpha, true, pRed, true, iflag);
-      }
+      out.writeRow(iter+1,{normg,std::sqrt(snorm2),alpha,pRed},iflag);
       if (normg < gtol) break;
       // Preconditioned updated (projected) gradient vector
       model.precond(*v_,*g_,s,tol);
@@ -199,11 +140,9 @@ public:
     if (iter == maxit_) iflag = 1;
     if (iflag != 1)     iter++;
     // Omit stale residual and rejected alpha values after truncation.
-    if (print_diag && (iflag == 2 || iflag == 3)) {
-      writeRow_(iter, /*rnorm*/zero, /*has_rnorm*/false,
-                true, snorm, false, zero, true, pRed, true, iflag);
-    }
-    if (print_diag) writeSummary_(iflag);
+    const Real na = IterationPrinter<Real>::none();
+    if (iflag == 2 || iflag == 3) out.writeRow(iter,{na,snorm,na,pRed},iflag);
+    out.writeSummary(iflag);
   }
 };
 
