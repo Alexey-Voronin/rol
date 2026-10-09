@@ -22,8 +22,6 @@
 #include <limits>
 #include <string>
 
-#include "ROL_GlobalMPISession.hpp"
-
 namespace ROL {
 
 template<class Real>
@@ -45,13 +43,12 @@ public:
   // Value marking a column that does not apply to a given row.
   static Real none() { return std::numeric_limits<Real>::quiet_NaN(); }
 
-  // Writes the header.  The serial MPI stub reports rank one.
+  // Writes the header.
   IterationPrinter(const char *name, int verbosity,
                    std::initializer_list<const char*> labels,
                    std::ostream &outStream = std::cout, bool flagColumn = false)
     : name_(name), os_(outStream),
-      active_(verbosity > 0 && (GlobalMPISession::getNProc() <= 1
-                                || GlobalMPISession::getRank() == 0)),
+      active_(verbosity > 0),
       ncol_(static_cast<int>(labels.size())), flagColumn_(flagColumn) {
     if ( !active_ ) return;
     os_ << std::string(2+iwidth_*(1+flagColumn_)+cwidth_*ncol_,'-') << "\n";
